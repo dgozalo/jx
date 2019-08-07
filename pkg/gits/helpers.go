@@ -753,7 +753,9 @@ func DuplicateGitRepoFromCommitsh(toOrg string, toName string, fromGitURL string
 		if err != nil {
 			return nil, errors.Wrapf(err, "parsing %s", fromGitURL)
 		}
-		fromInfo, err = provider.GetRepository(fromInfo.Organisation, fromInfo.Name)
+		fromInfoOrg := fromInfo.Organisation
+		fromInfoName := fromInfo.Name
+		fromInfo, err = provider.GetRepository(fromInfoOrg, fromInfoName)
 		if err != nil {
 			return nil, errors.Wrapf(err, "getting repo for %s", fromGitURL)
 		}

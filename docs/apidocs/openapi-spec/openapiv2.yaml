@@ -55,6 +55,10 @@ definitions:
     properties:
       pipelineExtension:
         $ref: '#/definitions/com.github.jenkins-x.jx.pkg.apis.jenkins_io.v1.PipelineExtension'
+      schedulersConfiguration:
+        items:
+          $ref: '#/definitions/com.github.jenkins-x.jx.pkg.apis.jenkins_io.v1.SchedulerConfiguration'
+        type: array
       schemaPreprocessor:
         $ref: '#/definitions/io.k8s.api.core.v1.Container'
       schemaPreprocessorRole:
@@ -2090,6 +2094,25 @@ definitions:
         type: string
     required:
     - agent
+    type: object
+  com.github.jenkins-x.jx.pkg.apis.jenkins_io.v1.SchedulerConfiguration:
+    description: SchedulerConfiguration allows an app to define what Schedulers will
+      be applied to which repositories
+    properties:
+      affectedRepositoriesRegex:
+        description: An array of regex strings that will be applied to all repositories.
+          A match will mean this SchedulerConfiguration will be applied to it
+        items:
+          type: string
+        type: array
+      applyGlobally:
+        description: If ApplyGlobally is true, this SchedulerConfiguration will be
+          applied to all repositories. Overrides AffectedRepositoriesRegex
+        type: boolean
+      schedulerRef:
+        description: The name of the Scheduler that will be applied by this configuration.
+          It should be defined in the Schedulers property within AppSpec
+        type: string
     type: object
   com.github.jenkins-x.jx.pkg.apis.jenkins_io.v1.SchedulerList:
     description: SchedulerList is a list of configurations for a pipeline scheduler

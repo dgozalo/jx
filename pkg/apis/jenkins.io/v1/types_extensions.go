@@ -5,7 +5,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	v1 "k8s.io/api/rbac/v1"
+	"k8s.io/api/rbac/v1"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes"
@@ -522,7 +522,18 @@ type AppSpec struct {
 	SchemaPreprocessor     *corev1.Container `json:"schemaPreprocessor,omitempty" protobuf:"bytes,1,opt,name=schemaPreprocessor"`
 	SchemaPreprocessorRole *v1.Role          `json:"schemaPreprocessorRole,omitempty" protobuf:"bytes,2,opt,name=schemaPreprocessorRole"`
 
-	PipelineExtension *PipelineExtension `json:"pipelineExtension,omitempty" protobuf:"bytes,3,opt,name=pipelineExtension"`
+	PipelineExtension       *PipelineExtension       `json:"pipelineExtension,omitempty" protobuf:"bytes,3,opt,name=pipelineExtension"`
+	SchedulersConfiguration []SchedulerConfiguration `json:"schedulersConfiguration,omitempty" protobuf:"bytes,4,opt,name=schedulersConfiguration"`
+}
+
+// SchedulerConfiguration allows an app to define what Schedulers will be applied to which repositories
+type SchedulerConfiguration struct {
+	// An array of regex strings that will be applied to all repositories. A match will mean this SchedulerConfiguration will be applied to it
+	AffectedRepositoriesRegex []string `json:"affectedRepositoriesRegex,omitempty" protobuf:"bytes,1,opt,name=affectedRepositoriesRegex"`
+	// If ApplyGlobally is true, this SchedulerConfiguration will be applied to all repositories. Overrides AffectedRepositoriesRegex
+	ApplyGlobally bool `json:"applyGlobally,omitempty" protobuf:"bytes,2,opt,name=applyGlobally"`
+	// The name of the Scheduler that will be applied by this configuration. It should be defined in the Schedulers property within AppSpec
+	SchedulerRef string `json:"schedulerRef,omitempty" protobuf:"bytes,3,opt,name=schedulerRef"`
 }
 
 // PipelineExtension defines the image and command of an app which wants to modify/extend the pipeline

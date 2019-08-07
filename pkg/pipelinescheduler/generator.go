@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -19,8 +20,8 @@ import (
 	"github.com/jenkins-x/jx/pkg/environments"
 	"github.com/jenkins-x/jx/pkg/gits"
 	"github.com/jenkins-x/jx/pkg/helm"
-	uuid "github.com/satori/go.uuid"
-	v1 "k8s.io/api/core/v1"
+	"github.com/satori/go.uuid"
+	"k8s.io/api/core/v1"
 	kubeerrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/helm/pkg/proto/hapi/chart"
 
@@ -49,9 +50,19 @@ func GenerateProw(gitOps bool, autoApplyConfigUpdater bool, jxClient versioned.I
 	if sourceRepos == nil || len(sourceRepos.Items) < 1 {
 		return nil, nil, errors.New("No source repository resources were found")
 	}
+
+	configurations, globalAppsSchedulers, err := getAppsSchedulerConfigurationsByRepositoryRegex(jxClient, namespace, schedulers)
+	if err != nil {
+		return nil, nil, errors.Wrapf(err, "loading scheduler configurations from apps")
+	}
+
 	defaultScheduler := schedulers[teamSchedulerName]
 	leaves := make([]*SchedulerLeaf, 0)
+	var firstRepo *jenkinsv1.SourceRepository
 	for _, sourceRepo := range sourceRepos.Items {
+		if firstRepo == nil {
+			firstRepo = &sourceRepo
+		}
 		applicableSchedulers := []*jenkinsv1.SchedulerSpec{}
 		// Apply config-updater to devEnv
 		applicableSchedulers = addConfigUpdaterToDevEnv(gitOps, autoApplyConfigUpdater, applicableSchedulers, devEnv, &sourceRepo.Spec)
@@ -61,6 +72,9 @@ func GenerateProw(gitOps bool, autoApplyConfigUpdater bool, jxClient versioned.I
 		applicableSchedulers = addProjectSchedulers(sourceRepoGroups, sourceRepo, schedulers, applicableSchedulers)
 		// Apply team scheduler
 		applicableSchedulers = addTeamScheduler(teamSchedulerName, defaultScheduler, applicableSchedulers)
+		// Apply apps schedulers
+		applicableSchedulers = addAppSchedulers(sourceRepo, configurations, applicableSchedulers)
+
 		if len(applicableSchedulers) < 1 {
 			continue
 		}
@@ -77,15 +91,41 @@ func GenerateProw(gitOps bool, autoApplyConfigUpdater bool, jxClient versioned.I
 			return nil, nil, errors.Wrapf(err, "building prow config")
 		}
 	}
+
+	if len(globalAppsSchedulers) > 0 {
+		merged, err := Build(globalAppsSchedulers)
+		if err != nil {
+			return nil, nil, errors.Wrapf(err, "building scheduler")
+		}
+		leaves = append(leaves, &SchedulerLeaf{
+			Repo:          firstRepo.Spec.Repo,
+			Org:           firstRepo.Spec.Org,
+			SchedulerSpec: merged,
+		})
+	}
+
 	cfg, plugs, err := BuildProwConfig(leaves)
 	if err != nil {
 		return nil, nil, errors.Wrapf(err, "building prow config")
 	}
 	if cfg != nil {
-		cfg.PodNamespace = namespace
+ 		cfg.PodNamespace = namespace
 		cfg.ProwJobNamespace = namespace
 	}
 	return cfg, plugs, nil
+}
+
+func addAppSchedulers(sourceRepo jenkinsv1.SourceRepository, schedulers map[string][]*jenkinsv1.SchedulerSpec, applicableSchedulers []*jenkinsv1.SchedulerSpec) []*jenkinsv1.SchedulerSpec {
+	for k, v := range schedulers {
+		reg, err := regexp.Compile(k)
+		if err != nil {
+			log.Logger().Warn("failed to compile the provided repository regex %s for app %s: ", err)
+		}
+		if reg.MatchString(sourceRepo.Spec.Repo) {
+			applicableSchedulers = append(applicableSchedulers, v...)
+		}
+	}
+	return applicableSchedulers
 }
 
 func loadSchedulerResources(jxClient versioned.Interface, namespace string) (map[string]*jenkinsv1.Scheduler, *jenkinsv1.SourceRepositoryGroupList, *jenkinsv1.SourceRepositoryList, error) {
@@ -111,6 +151,33 @@ func loadSchedulerResources(jxClient versioned.Interface, namespace string) (map
 		return nil, nil, nil, errors.Wrapf(err, "Error finding source repositories")
 	}
 	return lookup, sourceRepoGroups, sourceRepos, nil
+}
+
+func getAppsSchedulerConfigurationsByRepositoryRegex(jxClient versioned.Interface, namespace string, schedulers map[string]*jenkinsv1.Scheduler) (map[string][]*jenkinsv1.SchedulerSpec, []*jenkinsv1.SchedulerSpec, error) {
+	apps, err := jxClient.JenkinsV1().Apps(namespace).List(metav1.ListOptions{})
+	if err != nil {
+		return nil, nil, errors.WithStack(err)
+	}
+
+	repoCondifurations := make(map[string][]*jenkinsv1.SchedulerSpec)
+	globalSchedulers := []*jenkinsv1.SchedulerSpec{}
+	for _, app := range apps.Items {
+		if len(app.Spec.SchedulersConfiguration) > 0 {
+			for _, conf := range app.Spec.SchedulersConfiguration {
+				sc := schedulers[conf.SchedulerRef]
+				if strings.Contains(app.Name, sc.Labels["jenkins.io/definingApp"]) {
+					if conf.ApplyGlobally {
+						globalSchedulers = append(globalSchedulers, &schedulers[conf.SchedulerRef].Spec)
+					}
+					for _, regex := range conf.AffectedRepositoriesRegex {
+						repoCondifurations[regex] = append(repoCondifurations[regex], &schedulers[conf.SchedulerRef].Spec)
+					}
+				}
+			}
+		}
+	}
+
+	return repoCondifurations, globalSchedulers, nil
 }
 
 // CreateSchedulersFromProwConfig will generate Pipeline Schedulers from the prow configmaps in the specified namespace or the config and plugins files specified as an option

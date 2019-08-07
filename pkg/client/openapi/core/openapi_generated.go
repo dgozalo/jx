@@ -127,6 +127,7 @@ func GetOpenAPIDefinitions(ref common.ReferenceCallback) map[string]common.OpenA
 		"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.ReviewPolicy":                        schema_pkg_apis_jenkinsio_v1_ReviewPolicy(ref),
 		"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.Scheduler":                           schema_pkg_apis_jenkinsio_v1_Scheduler(ref),
 		"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.SchedulerAgent":                      schema_pkg_apis_jenkinsio_v1_SchedulerAgent(ref),
+		"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.SchedulerConfiguration":              schema_pkg_apis_jenkinsio_v1_SchedulerConfiguration(ref),
 		"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.SchedulerList":                       schema_pkg_apis_jenkinsio_v1_SchedulerList(ref),
 		"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.SchedulerSpec":                       schema_pkg_apis_jenkinsio_v1_SchedulerSpec(ref),
 		"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.SourceRepository":                    schema_pkg_apis_jenkinsio_v1_SourceRepository(ref),
@@ -293,11 +294,23 @@ func schema_pkg_apis_jenkinsio_v1_AppSpec(ref common.ReferenceCallback) common.O
 							Ref: ref("github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.PipelineExtension"),
 						},
 					},
+					"schedulersConfiguration": {
+						SchemaProps: spec.SchemaProps{
+							Type: []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Ref: ref("github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.SchedulerConfiguration"),
+									},
+								},
+							},
+						},
+					},
 				},
 			},
 		},
 		Dependencies: []string{
-			"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.PipelineExtension", "k8s.io/api/core/v1.Container", "k8s.io/api/rbac/v1.Role"},
+			"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.PipelineExtension", "github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.SchedulerConfiguration", "k8s.io/api/core/v1.Container", "k8s.io/api/rbac/v1.Role"},
 	}
 }
 
@@ -5308,6 +5321,48 @@ func schema_pkg_apis_jenkinsio_v1_SchedulerAgent(ref common.ReferenceCallback) c
 					},
 				},
 				Required: []string{"agent"},
+			},
+		},
+		Dependencies: []string{},
+	}
+}
+
+func schema_pkg_apis_jenkinsio_v1_SchedulerConfiguration(ref common.ReferenceCallback) common.OpenAPIDefinition {
+	return common.OpenAPIDefinition{
+		Schema: spec.Schema{
+			SchemaProps: spec.SchemaProps{
+				Description: "SchedulerConfiguration allows an app to define what Schedulers will be applied to which repositories",
+				Type:        []string{"object"},
+				Properties: map[string]spec.Schema{
+					"affectedRepositoriesRegex": {
+						SchemaProps: spec.SchemaProps{
+							Description: "An array of regex strings that will be applied to all repositories. A match will mean this SchedulerConfiguration will be applied to it",
+							Type:        []string{"array"},
+							Items: &spec.SchemaOrArray{
+								Schema: &spec.Schema{
+									SchemaProps: spec.SchemaProps{
+										Type:   []string{"string"},
+										Format: "",
+									},
+								},
+							},
+						},
+					},
+					"applyGlobally": {
+						SchemaProps: spec.SchemaProps{
+							Description: "If ApplyGlobally is true, this SchedulerConfiguration will be applied to all repositories. Overrides AffectedRepositoriesRegex",
+							Type:        []string{"boolean"},
+							Format:      "",
+						},
+					},
+					"schedulerRef": {
+						SchemaProps: spec.SchemaProps{
+							Description: "The name of the Scheduler that will be applied by this configuration. It should be defined in the Schedulers property within AppSpec",
+							Type:        []string{"string"},
+							Format:      "",
+						},
+					},
+				},
 			},
 		},
 		Dependencies: []string{},
