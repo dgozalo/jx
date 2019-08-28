@@ -5358,14 +5358,14 @@ func schema_pkg_apis_jenkinsio_v1_SchedulerConfiguration(ref common.ReferenceCal
 					"schedulerRef": {
 						SchemaProps: spec.SchemaProps{
 							Description: "The name of the Scheduler that will be applied by this configuration. It should be defined in the Schedulers property within AppSpec",
-							Type:        []string{"string"},
-							Format:      "",
+							Ref:         ref("github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.ResourceReference"),
 						},
 					},
 				},
 			},
 		},
-		Dependencies: []string{},
+		Dependencies: []string{
+			"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1.ResourceReference"},
 	}
 }
 

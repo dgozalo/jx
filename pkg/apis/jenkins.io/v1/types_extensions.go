@@ -533,7 +533,7 @@ type SchedulerConfiguration struct {
 	// If ApplyGlobally is true, this SchedulerConfiguration will be applied to all repositories. Overrides AffectedRepositoriesRegex
 	ApplyGlobally bool `json:"applyGlobally,omitempty" protobuf:"bytes,2,opt,name=applyGlobally"`
 	// The name of the Scheduler that will be applied by this configuration. It should be defined in the Schedulers property within AppSpec
-	SchedulerRef string `json:"schedulerRef,omitempty" protobuf:"bytes,3,opt,name=schedulerRef"`
+	SchedulerRef ResourceReference `json:"schedulerRef,omitempty" protobuf:"bytes,3,opt,name=schedulerRef"`
 }
 
 // PipelineExtension defines the image and command of an app which wants to modify/extend the pipeline

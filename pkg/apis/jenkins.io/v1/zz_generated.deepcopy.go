@@ -3603,6 +3603,7 @@ func (in *SchedulerConfiguration) DeepCopyInto(out *SchedulerConfiguration) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	out.SchedulerRef = in.SchedulerRef
 	return
 }
 

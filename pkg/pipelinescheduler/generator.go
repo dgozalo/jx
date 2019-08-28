@@ -109,7 +109,7 @@ func GenerateProw(gitOps bool, autoApplyConfigUpdater bool, jxClient versioned.I
 		return nil, nil, errors.Wrapf(err, "building prow config")
 	}
 	if cfg != nil {
- 		cfg.PodNamespace = namespace
+		cfg.PodNamespace = namespace
 		cfg.ProwJobNamespace = namespace
 	}
 	return cfg, plugs, nil
@@ -159,25 +159,25 @@ func getAppsSchedulerConfigurationsByRepositoryRegex(jxClient versioned.Interfac
 		return nil, nil, errors.WithStack(err)
 	}
 
-	repoCondifurations := make(map[string][]*jenkinsv1.SchedulerSpec)
+	configs := make(map[string][]*jenkinsv1.SchedulerSpec)
 	globalSchedulers := []*jenkinsv1.SchedulerSpec{}
 	for _, app := range apps.Items {
 		if len(app.Spec.SchedulersConfiguration) > 0 {
 			for _, conf := range app.Spec.SchedulersConfiguration {
-				sc := schedulers[conf.SchedulerRef]
+				sc := schedulers[conf.SchedulerRef.Name]
 				if strings.Contains(app.Name, sc.Labels["jenkins.io/definingApp"]) {
 					if conf.ApplyGlobally {
-						globalSchedulers = append(globalSchedulers, &schedulers[conf.SchedulerRef].Spec)
+						globalSchedulers = append(globalSchedulers, &schedulers[conf.SchedulerRef.Name].Spec)
 					}
 					for _, regex := range conf.AffectedRepositoriesRegex {
-						repoCondifurations[regex] = append(repoCondifurations[regex], &schedulers[conf.SchedulerRef].Spec)
+						configs[regex] = append(configs[regex], &schedulers[conf.SchedulerRef.Name].Spec)
 					}
 				}
 			}
 		}
 	}
 
-	return repoCondifurations, globalSchedulers, nil
+	return configs, globalSchedulers, nil
 }
 
 // CreateSchedulersFromProwConfig will generate Pipeline Schedulers from the prow configmaps in the specified namespace or the config and plugins files specified as an option
