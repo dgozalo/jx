@@ -1,12 +1,14 @@
 package storage
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"net/url"
 	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/aws/aws-sdk-go/service/s3/s3iface"
 	"github.com/jenkins-x/jx/pkg/cloud/amazon"
@@ -78,23 +80,76 @@ func (b *AmazonBucketProvider) EnsureBucketIsCreated(bucketURL string) error {
 	if err == nil {
 		return nil // bucket already exists
 	}
-	aerr, ok := err.(awserr.Error)
-	if !ok || aerr.Code() != s3.ErrCodeNoSuchBucket {
+	reqFailure, ok := err.(s3.RequestFailure)
+	if !ok || reqFailure.StatusCode() != 404 {
 		return errors.Wrapf(err, "failed to check if %s bucket exists already", bucketName)
 	}
 
 	infoBucketURL := util.ColorInfo(bucketURL)
 	log.Logger().Infof("The bucket %s does not exist so lets create it", infoBucketURL)
-	_, err = svc.CreateBucket(&s3.CreateBucketInput{
+
+	cbInput := &s3.CreateBucketInput{
 		Bucket: aws.String(bucketName),
-		CreateBucketConfiguration: &s3.CreateBucketConfiguration{
+	}
+	// There's a known problem with the S3 API that will make the request fail if you provide a CreateBucketConfiguration
+	// with a LocationConstraint pointing to the S3 default us-east-1 region. If not provided, it will be created in that region.
+	if b.Requirements.Cluster.Region != "us-east-1" {
+		cbInput.CreateBucketConfiguration = &s3.CreateBucketConfiguration{
 			LocationConstraint: aws.String(b.Requirements.Cluster.Region),
-		},
-	})
+		}
+	}
+	_, err = svc.CreateBucket(cbInput)
 	if err != nil {
 		return errors.Wrapf(err, "there was a problem creating the bucket %s in the AWS", bucketName)
 	}
 	return nil
+}
+
+func (b *AmazonBucketProvider) UploadFileToBucket(data []byte, outputName string, bucketURL string) (string, error) {
+	sess, err := amazon.NewAwsSession("", b.Requirements.Cluster.Region)
+	if err != nil {
+		return "", err
+	}
+	bucketURL = strings.Trim(bucketURL, "s3://")
+	uploader := s3manager.NewUploader(sess)
+	output, err := uploader.Upload(&s3manager.UploadInput{
+		Bucket: aws.String(bucketURL),
+		Key:    aws.String("/" + outputName),
+		Body:   bytes.NewReader(data),
+	})
+	if err != nil {
+		return "", err
+	}
+	log.Logger().Debugf("The file was uploaded successfully, location: %s", output.Location)
+	return fmt.Sprintf("%s://%s/%s", "s3", bucketURL, outputName), nil
+}
+
+func (b *AmazonBucketProvider) DownloadFileFromBucket(bucketURL string) (*bufio.Scanner, error) {
+	sess, err := amazon.NewAwsSession("", b.Requirements.Cluster.Region)
+	if err != nil {
+		return nil, err
+	}
+	downloader := s3manager.NewDownloader(sess)
+
+	u, err := url.Parse(bucketURL)
+	if err != nil {
+		return nil, err
+	}
+	requestInput := s3.GetObjectInput{
+		Bucket: aws.String(u.Host),
+		Key: aws.String(u.Path),
+	}
+
+	buf := aws.NewWriteAtBuffer([]byte{})
+	_, err = downloader.Download(buf, &requestInput)
+	if err != nil {
+		return nil, err
+	}
+
+	reader := bytes.NewReader(buf.Bytes())
+	scanner := bufio.NewScanner(reader)
+	scanner.Split(bufio.ScanLines)
+	return scanner, nil
 }
 
 // NewAmazonBucketProvider create a new provider for AWS

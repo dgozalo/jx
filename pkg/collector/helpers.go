@@ -3,6 +3,8 @@ package collector
 import (
 	"context"
 	"fmt"
+	"github.com/jenkins-x/jx/pkg/cloud/factory"
+	"github.com/jenkins-x/jx/pkg/log"
 	"time"
 
 	jenkinsv1 "github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1"
@@ -27,6 +29,11 @@ func NewCollector(storageLocation jenkinsv1.StorageLocation, settings *jenkinsv1
 	if gitURL != "" {
 		return NewGitCollector(gitter, gitURL, storageLocation.GetGitBranch())
 	}
+	bucketProvider, err := factory.NewBucketProviderFromClusterConfiguration()
+	if err != nil {
+		log.Logger().Errorf("there was a problem obtaining the bucket provider from cluster configuration %s", err.Error())
+	}
+	log.Logger().Warnf("Bucket provider obtained %+v", bucketProvider)
 	ctx, _ := context.WithTimeout(context.Background(), time.Second*20)
 	u := storageLocation.BucketURL
 	if u == "" {
@@ -36,5 +43,5 @@ func NewCollector(storageLocation jenkinsv1.StorageLocation, settings *jenkinsv1
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to open bucket %s", u)
 	}
-	return NewBucketCollector(u, bucket, classifier)
+	return NewBucketCollector(u, bucket, classifier, bucketProvider)
 }

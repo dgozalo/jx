@@ -3,6 +3,7 @@ package logs
 import (
 	"bufio"
 	"fmt"
+	"github.com/jenkins-x/jx/pkg/cloud/factory"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -17,7 +18,6 @@ import (
 	"github.com/jenkins-x/jx/pkg/cmd/step"
 	"github.com/jenkins-x/jx/pkg/util"
 
-	"github.com/jenkins-x/jx/pkg/cloud/gke"
 	"github.com/jenkins-x/jx/pkg/tekton"
 
 	"github.com/fatih/color"
@@ -426,15 +426,17 @@ func (t *TektonLogger) StreamPipelinePersistentLogs(logsURL string, o *opts.Comm
 	}
 	var logBytes []byte
 	switch u.Scheme {
-	case "gs":
-		scanner, err := gke.StreamTransferFileFromBucket(logsURL)
+	case "s3", "gs":
+		provider, err := factory.NewBucketProviderFromClusterConfiguration()
+		if err != nil {
+			return err
+		}
+		scanner, err := provider.DownloadFileFromBucket(logsURL)
 		if err != nil {
 			return errors.Wrapf(err, "there was a problem obtaining the log file from the configured bucket URL %s", logsURL)
 		}
 		return t.streamPipedLogs(scanner, logsURL)
-	case "http":
-		fallthrough
-	case "https":
+	case "http", "https":
 		logBytes, err = downloadLogFile(logsURL, o)
 		if err != nil {
 			return errors.Wrapf(err, "there was a problem obtaining the log file from the github pages URL %s", logsURL)
