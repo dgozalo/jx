@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"bufio"
 	"fmt"
 	"net/url"
 	"strings"
@@ -68,6 +69,14 @@ func (b *GKEBucketProvider) EnsureBucketIsCreated(bucketURL string) error {
 			bucketName, project)
 	}
 	return nil
+}
+
+func (b *GKEBucketProvider) UploadFileToBucket(bytes []byte, outputName string, bucketURL string) (string, error) {
+	return gke.UploadFileToBucket(bytes, outputName, bucketURL)
+}
+
+func (b *GKEBucketProvider) DownloadFileFromBucket(bucketURL string) (*bufio.Scanner, error) {
+	return gke.StreamTransferFileFromBucket(bucketURL)
 }
 
 // NewGKEBucketProvider create a new provider for GKE
