@@ -17,27 +17,23 @@ type BucketCollector struct {
 	Timeout time.Duration
 
 	bucketURL  string
-	bucket     *blob.Bucket
 	classifier string
 	provider   buckets.Provider
 }
 
 // NewBucketCollector creates a new git based collector
-func NewBucketCollector(bucketURL string, bucket *blob.Bucket, classifier string, provider buckets.Provider) (Collector, error) {
+func NewBucketCollector(bucketURL string, classifier string, provider buckets.Provider) (Collector, error) {
 	return &BucketCollector{
 		Timeout:    time.Second * 20,
-		bucketURL:  bucketURL,
-		bucket:     bucket,
 		classifier: classifier,
 		provider:   provider,
+		bucketURL: bucketURL,
 	}, nil
 }
 
 // CollectFiles collects files and returns the URLs
 func (c *BucketCollector) CollectFiles(patterns []string, outputPath string, basedir string) ([]string, error) {
 	urls := []string{}
-	bucket := c.bucket
-	ctx := c.createContext()
 	for _, p := range patterns {
 		fn := func(name string) error {
 			var err error
@@ -55,18 +51,22 @@ func (c *BucketCollector) CollectFiles(patterns []string, outputPath string, bas
 			if err != nil {
 				return errors.Wrapf(err, "failed to read file %s", name)
 			}
-			var url string
-			if c.provider == nil {
-				url, err = c.performLegacyUpload(bucket, name, ctx, toName, data)
-				if err != nil {
-					return err
-				}
-			} else {
-				url, err = c.provider.UploadFileToBucket(data, toName, c.bucketURL)
-				if err != nil {
-					return err
-				}
+			url, err := c.provider.UploadFileToBucket(data, toName, c.bucketURL)
+			if err != nil {
+				return err
 			}
+			//var url string
+			//if c.provider == nil {
+			//	url, err = c.performLegacyUpload(bucket, name, ctx, toName, data)
+			//	if err != nil {
+			//		return err
+			//	}
+			//} else {
+			//	url, err = c.provider.UploadFileToBucket(data, toName, c.bucketURL)
+			//	if err != nil {
+			//		return err
+			//	}
+			//}
 			urls = append(urls, url)
 			return nil
 		}
@@ -82,25 +82,27 @@ func (c *BucketCollector) CollectFiles(patterns []string, outputPath string, bas
 // CollectData collects the data storing it at the given output path and returning the URL
 // to access it
 func (c *BucketCollector) CollectData(data []byte, outputName string) (string, error) {
-	if c.provider == nil {
-		opts := &blob.WriterOptions{
-			ContentType: util.ContentTypeForFileName(outputName),
-			Metadata: map[string]string{
-				"classification": c.classifier,
-			},
-		}
-		u := ""
-		ctx := c.createContext()
-		err := c.bucket.WriteAll(ctx, outputName, data, opts)
-		if err != nil {
-			return u, errors.Wrapf(err, "failed to write to bucket %s", outputName)
-		}
-
-		u = util.UrlJoin(c.bucketURL, outputName)
-		return u, nil
-	}
-	log.Logger().Warn("Uploading using provider")
+	log.Logger().Warnf("Provider is defined? %+v", c.provider)
 	url, err := c.provider.UploadFileToBucket(data, outputName, c.bucketURL)
+	//if c.provider == nil {
+	//	opts := &blob.WriterOptions{
+	//		ContentType: util.ContentTypeForFileName(outputName),
+	//		Metadata: map[string]string{
+	//			"classification": c.classifier,
+	//		},
+	//	}
+	//	u := ""
+	//	ctx := c.createContext()
+	//	err := c.bucket.WriteAll(ctx, outputName, data, opts)
+	//	if err != nil {
+	//		return u, errors.Wrapf(err, "failed to write to bucket %s", outputName)
+	//	}
+	//
+	//	u = util.UrlJoin(c.bucketURL, outputName)
+	//	return u, nil
+	//}
+	//log.Logger().Warn("Uploading using provider")
+	//url, err := c.provider.UploadFileToBucket(data, outputName, c.bucketURL)
 	if err != nil {
 		return "", err
 	}
