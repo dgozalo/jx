@@ -37,15 +37,14 @@ func NewBucketProviderFromTeamSettingsConfiguration() (buckets.Provider, error) 
 		return nil, err
 	}
 	log.Logger().Warn("Getting the dev environment")
-	env, err := kube.GetEnvironment(jxClient, ns, "dev")
+	teamSettings, err := kube.GetDevEnvTeamSettings(jxClient, ns)
 	if err != nil {
-		return nil, errors.Wrap(err, "error obtaining the dev environment to select the correct bucket provider")
+		return nil, errors.Wrap(err, "error obtaining the dev environment teamSettings to select the correct bucket provider")
 	}
-	log.Logger().Warnf("Environment %+v", env)
-	if env != nil {
-		log.Logger().Warnf("Spec %+v", env.Spec)
-		log.Logger().Warnf("TEAMSETTINGS %+v", env.Spec)
-		requirements, err := config.GetRequirementsConfigFromTeamSettings(&env.Spec.TeamSettings)
+	log.Logger().Warnf("Environment %+v", teamSettings)
+	if teamSettings != nil {
+		log.Logger().Warnf("TEAMSETTINGS %+v", teamSettings)
+		requirements, err := config.GetRequirementsConfigFromTeamSettings(teamSettings)
 		if err != nil {
 			return nil, errors.Wrap(err, "could not obtain the requirements file to decide the bucket provider")
 		}
