@@ -1,7 +1,6 @@
 package factory
 
 import (
-	"github.com/ghodss/yaml"
 	"github.com/jenkins-x/jx/pkg/cloud"
 	amazonStorage "github.com/jenkins-x/jx/pkg/cloud/amazon/storage"
 	"github.com/jenkins-x/jx/pkg/cloud/buckets"
@@ -9,11 +8,16 @@ import (
 	"github.com/jenkins-x/jx/pkg/cmd/clients"
 	"github.com/jenkins-x/jx/pkg/config"
 	"github.com/jenkins-x/jx/pkg/kube"
+	"github.com/jenkins-x/jx/pkg/log"
 	"github.com/pkg/errors"
 )
 
 // NewBucketProvider creates a new bucket provider for a given Kubernetes provider
 func NewBucketProvider(requirements *config.RequirementsConfig) buckets.Provider {
+	if requirements == nil {
+		log.Logger().Warn("Creating a legacy bucket provider")
+		return buckets.NewLegacyBucketProvider()
+	}
 	switch requirements.Cluster.Provider {
 	case cloud.GKE:
 		return storage.NewGKEBucketProvider(requirements)
@@ -26,22 +30,29 @@ func NewBucketProvider(requirements *config.RequirementsConfig) buckets.Provider
 	}
 }
 
-func NewBucketProviderFromClusterConfiguration() (buckets.Provider, error) {
+func NewBucketProviderFromTeamSettingsConfiguration() (buckets.Provider, error) {
 	factory := clients.NewFactory()
-	kubeClient, ns, err := factory.CreateKubeClient()
+	jxClient, ns, err := factory.CreateJXClient()
 	if err != nil {
 		return nil, err
 	}
-
-	data, err := kube.GetConfigMapData(kubeClient, "jx-requirements-config", ns)
+	log.Logger().Warn("Getting the dev environment")
+	env, err := kube.GetEnvironment(jxClient, ns, "dev")
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "error obtaining the dev environment to select the correct bucket provider")
 	}
-	requirementsFileData := data["requirementsFile"]
-	requirements := &config.RequirementsConfig{}
-	err = yaml.Unmarshal([]byte(requirementsFileData), requirements)
-	if err != nil {
-		return nil, errors.Wrapf(err, "there was a problem unmarshaling the requirements file from ConfigMap")
+	log.Logger().Warnf("Environment %+v", env)
+	if env != nil {
+		log.Logger().Warnf("Spec %+v", env.Spec)
+		log.Logger().Warnf("TEAMSETTINGS %+v", env.Spec)
+		requirements, err := config.GetRequirementsConfigFromTeamSettings(&env.Spec.TeamSettings)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not obtain the requirements file to decide the bucket provider")
+		}
+		if requirements != nil {
+			log.Logger().Warnf("Requirements form Team Settings %+v", *requirements)
+		}
+		return NewBucketProvider(requirements), nil
 	}
-	return NewBucketProvider(requirements), nil
+	return nil, nil
 }

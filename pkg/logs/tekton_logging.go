@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/jenkins-x/jx/pkg/cloud/factory"
+	"github.com/jenkins-x/jx/pkg/cloud/gke"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -418,7 +419,6 @@ func (t TektonLogger) waitForContainerToStart(ns string, pod *corev1.Pod, idx in
 
 // StreamPipelinePersistentLogs reads logs from the provided bucket URL and writes them using the provided LogWriter
 func (t *TektonLogger) StreamPipelinePersistentLogs(logsURL string, o *opts.CommonOptions) error {
-	//TODO: This should be changed in the future when other bucket providers are supported
 	t.initializeLoggingRoutine()
 	u, err := url.Parse(logsURL)
 	if err != nil {
@@ -426,8 +426,25 @@ func (t *TektonLogger) StreamPipelinePersistentLogs(logsURL string, o *opts.Comm
 	}
 	var logBytes []byte
 	switch u.Scheme {
-	case "s3", "gs":
-		provider, err := factory.NewBucketProviderFromClusterConfiguration()
+	case "gs":
+		provider, err := factory.NewBucketProviderFromTeamSettingsConfiguration()
+		if err != nil {
+			// this is for non boot clusters, we still need to serve the logs from the GCS bucket, unlike S3
+			scanner, err := gke.StreamTransferFileFromBucket(logsURL)
+			if err != nil {
+				return errors.Wrapf(err, "there was a problem obtaining the log file from the configured bucket URL %s", logsURL)
+			}
+			return t.streamPipedLogs(scanner, logsURL)
+		}
+		//if we have a provider, this is a boot cluster, we can safely use it
+		scanner, err := provider.DownloadFileFromBucket(logsURL)
+		if err != nil {
+			return errors.Wrapf(err, "there was a problem obtaining the log file from the configured bucket URL %s", logsURL)
+		}
+		return t.streamPipedLogs(scanner, logsURL)
+	case "s3":
+		// we only support LTS on EKS boot clusters, so we won't bother with adding a legacy way to obtain them
+		provider, err := factory.NewBucketProviderFromTeamSettingsConfiguration()
 		if err != nil {
 			return err
 		}
