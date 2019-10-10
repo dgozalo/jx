@@ -1,12 +1,9 @@
 package collector
 
 import (
-	"context"
 	"github.com/jenkins-x/jx/pkg/cloud/buckets"
-	"github.com/jenkins-x/jx/pkg/log"
 	"github.com/jenkins-x/jx/pkg/util"
 	"github.com/pkg/errors"
-	"gocloud.dev/blob"
 	"io/ioutil"
 	"path/filepath"
 	"time"
@@ -55,18 +52,6 @@ func (c *BucketCollector) CollectFiles(patterns []string, outputPath string, bas
 			if err != nil {
 				return err
 			}
-			//var url string
-			//if c.provider == nil {
-			//	url, err = c.performLegacyUpload(bucket, name, ctx, toName, data)
-			//	if err != nil {
-			//		return err
-			//	}
-			//} else {
-			//	url, err = c.provider.UploadFileToBucket(data, toName, c.bucketURL)
-			//	if err != nil {
-			//		return err
-			//	}
-			//}
 			urls = append(urls, url)
 			return nil
 		}
@@ -79,53 +64,11 @@ func (c *BucketCollector) CollectFiles(patterns []string, outputPath string, bas
 	return urls, nil
 }
 
-// CollectData collects the data storing it at the given output path and returning the URL
-// to access it
+// CollectData collects the data storing it at the given output path and returning the URL to access it
 func (c *BucketCollector) CollectData(data []byte, outputName string) (string, error) {
-	log.Logger().Warnf("Provider is defined? %+v", c.provider)
 	url, err := c.provider.UploadFileToBucket(data, outputName, c.bucketURL)
-	//if c.provider == nil {
-	//	opts := &blob.WriterOptions{
-	//		ContentType: util.ContentTypeForFileName(outputName),
-	//		Metadata: map[string]string{
-	//			"classification": c.classifier,
-	//		},
-	//	}
-	//	u := ""
-	//	ctx := c.createContext()
-	//	err := c.bucket.WriteAll(ctx, outputName, data, opts)
-	//	if err != nil {
-	//		return u, errors.Wrapf(err, "failed to write to bucket %s", outputName)
-	//	}
-	//
-	//	u = util.UrlJoin(c.bucketURL, outputName)
-	//	return u, nil
-	//}
-	//log.Logger().Warn("Uploading using provider")
-	//url, err := c.provider.UploadFileToBucket(data, outputName, c.bucketURL)
 	if err != nil {
 		return "", err
 	}
 	return url, nil
-}
-
-func (c *BucketCollector) performLegacyUpload(bucket *blob.Bucket, name string, ctx context.Context, toName string, data []byte) (string, error) {
-	opts := &blob.WriterOptions{
-		ContentType: util.ContentTypeForFileName(name),
-		Metadata: map[string]string{
-			"classification": c.classifier,
-		},
-	}
-	err := bucket.WriteAll(ctx, toName, data, opts)
-	if err != nil {
-		return "", errors.Wrapf(err, "failed to write to bucket %s", toName)
-	}
-
-	u := util.UrlJoin(c.bucketURL, toName)
-	return u, nil
-}
-
-func (c *BucketCollector) createContext() context.Context {
-	ctx, _ := context.WithTimeout(context.Background(), c.Timeout)
-	return ctx
 }

@@ -427,30 +427,20 @@ func (t *TektonLogger) StreamPipelinePersistentLogs(logsURL string, o *opts.Comm
 	var logBytes []byte
 	switch u.Scheme {
 	case "gs":
-		provider, err := factory.NewBucketProviderFromTeamSettingsConfiguration()
+		scanner, err := performProviderDownload(logsURL)
 		if err != nil {
-			// this is for non boot clusters, we still need to serve the logs from the GCS bucket, unlike S3
-			scanner, err := gke.StreamTransferFileFromBucket(logsURL)
-			if err != nil {
-				return errors.Wrapf(err, "there was a problem obtaining the log file from the configured bucket URL %s", logsURL)
-			}
-			return t.streamPipedLogs(scanner, logsURL)
-		}
-		//if we have a provider, this is a boot cluster, we can safely use it
-		scanner, err := provider.DownloadFileFromBucket(logsURL)
-		if err != nil {
-			return errors.Wrapf(err, "there was a problem obtaining the log file from the configured bucket URL %s", logsURL)
+			// TODO: This is only here as long as we keep supporting non boot clusters, as GKE are the only ones with LTS supported outside of boot
+				scanner, err2 := gke.StreamTransferFileFromBucket(logsURL)
+				if err2 != nil {
+					return util.CombineErrors(err, err2)
+				}
+				return t.streamPipedLogs(scanner, logsURL)
 		}
 		return t.streamPipedLogs(scanner, logsURL)
 	case "s3":
-		// we only support LTS on EKS boot clusters, so we won't bother with adding a legacy way to obtain them
-		provider, err := factory.NewBucketProviderFromTeamSettingsConfiguration()
+		scanner, err := performProviderDownload(logsURL)
 		if err != nil {
-			return err
-		}
-		scanner, err := provider.DownloadFileFromBucket(logsURL)
-		if err != nil {
-			return errors.Wrapf(err, "there was a problem obtaining the log file from the configured bucket URL %s", logsURL)
+			return errors.Wrap(err, "there was a problem downloading logs from s3 bucket")
 		}
 		return t.streamPipedLogs(scanner, logsURL)
 	case "http", "https":
@@ -557,4 +547,12 @@ func downloadLogFile(logsURL string, o *opts.CommonOptions) ([]byte, error) {
 		return nil, err
 	}
 	return logBytes, nil
+}
+
+func performProviderDownload(logsURL string) (*bufio.Scanner, error) {
+	provider, err := factory.NewBucketProviderFromTeamSettingsConfiguration()
+	if err != nil {
+		return nil, errors.Wrap(err, "There was a problem obtaining a Bucket provider for bucket scheme gs://")
+	}
+	return provider.DownloadFileFromBucket(logsURL)
 }

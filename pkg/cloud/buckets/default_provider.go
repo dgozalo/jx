@@ -5,14 +5,18 @@ import (
 	"context"
 	"fmt"
 	"github.com/jenkins-x/jx/pkg/cloud/gke"
-	"github.com/jenkins-x/jx/pkg/log"
 	"github.com/jenkins-x/jx/pkg/util"
 	"github.com/pkg/errors"
 	"gocloud.dev/blob"
 	"time"
+
+	_ "gocloud.dev/blob/azureblob"
+	_ "gocloud.dev/blob/fileblob"
+	_ "gocloud.dev/blob/gcsblob"
+	_ "gocloud.dev/blob/s3blob"
 )
 
-// GKEBucketProvider the bucket provider for GKE
+// LegacyBucketProvider is the default provider for non boot clusters
 type LegacyBucketProvider struct {
 	gcloud gke.GClouder
 	bucket *blob.Bucket
@@ -24,8 +28,12 @@ func (LegacyBucketProvider) CreateNewBucketForCluster(clusterName string, bucket
 }
 func (LegacyBucketProvider) EnsureBucketIsCreated(bucketURL string) error {
 	return fmt.Errorf("EnsureBucketIsCreated not implemented for LegacyBucketProvider")
-
 }
+
+func (LegacyBucketProvider) DownloadFileFromBucket(bucketURL string) (*bufio.Scanner, error) {
+	return nil, fmt.Errorf("DownloadFileFromBucket not implemented for LegacyBucketProvider")
+}
+
 func (p LegacyBucketProvider) UploadFileToBucket(bytes []byte, outputName string, bucketURL string) (string, error) {
 	opts := &blob.WriterOptions{
 		ContentType: util.ContentTypeForFileName(outputName),
@@ -39,9 +47,8 @@ func (p LegacyBucketProvider) UploadFileToBucket(bytes []byte, outputName string
 	if err != nil {
 		return u, errors.Wrapf(err, "failed to write to bucket %s", outputName)
 	}
-
 	u = util.UrlJoin(bucketURL, outputName)
-	return "", fmt.Errorf("UploadFileToBucket not implemented for LegacyBucketProvider")
+	return u, nil
 }
 
 func (LegacyBucketProvider) createContext() context.Context {
@@ -49,12 +56,7 @@ func (LegacyBucketProvider) createContext() context.Context {
 	return ctx
 }
 
-func (LegacyBucketProvider) DownloadFileFromBucket(bucketURL string) (*bufio.Scanner, error) {
-	return nil, fmt.Errorf("DownloadFileFromBucket not implemented for LegacyBucketProvider")
-}
-
 func (p *LegacyBucketProvider) Initialize(bucketURL string, classifier string) error {
-	log.Logger().Warnf("Calling LegacyBucketProvider with bucketURL %s, classifier: %s", bucketURL, classifier)
 	ctx, _ := context.WithTimeout(context.Background(), time.Second*20)
 	if bucketURL == "" {
 		return fmt.Errorf("no BucketURL is configured for the storage location in the TeamSettings")
