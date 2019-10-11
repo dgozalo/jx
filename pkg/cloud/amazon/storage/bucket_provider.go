@@ -4,7 +4,9 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
+	"github.com/aws/aws-sdk-go/service/s3/s3manager/s3manageriface"
 	"net/url"
 	"strings"
 
@@ -24,12 +26,11 @@ import (
 type AmazonBucketProvider struct {
 	Requirements *config.RequirementsConfig
 	api          s3iface.S3API
+	uploader     s3manageriface.UploaderAPI
+	downloader   s3manageriface.DownloaderAPI
 }
 
-func (b *AmazonBucketProvider) s3() (s3iface.S3API, error) {
-	if b.api != nil {
-		return b.api, nil
-	}
+func (b AmazonBucketProvider) createAWSSession() (*session.Session, error) {
 	region := b.Requirements.Cluster.Region
 	if region == "" {
 		return nil, errors.New("requirements do not specify a cluster region")
@@ -38,9 +39,44 @@ func (b *AmazonBucketProvider) s3() (s3iface.S3API, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create AWS session")
 	}
+	return sess, nil
+}
+
+func (b *AmazonBucketProvider) s3() (s3iface.S3API, error) {
+	if b.api != nil {
+		return b.api, nil
+	}
+	sess, err := b.createAWSSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "there was a problem creating the s3 API interface")
+	}
 	b.api = s3.New(sess)
 
 	return b.api, nil
+}
+
+func (b *AmazonBucketProvider) s3ManagerDownloader() (s3manageriface.DownloaderAPI, error) {
+	if b.downloader != nil {
+		return b.downloader, nil
+	}
+	sess, err := b.createAWSSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "there was a problem creating the s3ManagerDownloader")
+	}
+	b.downloader = s3manager.NewDownloader(sess)
+	return b.downloader, nil
+}
+
+func (b *AmazonBucketProvider) s3ManagerUploader() (s3manageriface.UploaderAPI, error) {
+	if b.uploader != nil {
+		return b.uploader, nil
+	}
+	sess, err := b.createAWSSession()
+	if err != nil {
+		return nil, errors.Wrap(err, "there was a problem creating the s3ManagerUploader")
+	}
+	b.uploader = s3manager.NewUploader(sess)
+	return b.uploader, nil
 }
 
 // CreateNewBucketForCluster creates a new dynamic bucket
@@ -106,12 +142,11 @@ func (b *AmazonBucketProvider) EnsureBucketIsCreated(bucketURL string) error {
 }
 
 func (b *AmazonBucketProvider) UploadFileToBucket(data []byte, outputName string, bucketURL string) (string, error) {
-	sess, err := amazon.NewAwsSession("", b.Requirements.Cluster.Region)
+	uploader, err := b.s3ManagerUploader()
 	if err != nil {
-		return "", err
+		return "", nil
 	}
 	bucketURL = strings.Trim(bucketURL, "s3://")
-	uploader := s3manager.NewUploader(sess)
 	output, err := uploader.Upload(&s3manager.UploadInput{
 		Bucket: aws.String(bucketURL),
 		Key:    aws.String("/" + outputName),
@@ -125,19 +160,18 @@ func (b *AmazonBucketProvider) UploadFileToBucket(data []byte, outputName string
 }
 
 func (b *AmazonBucketProvider) DownloadFileFromBucket(bucketURL string) (*bufio.Scanner, error) {
-	sess, err := amazon.NewAwsSession("", b.Requirements.Cluster.Region)
+	downloader, err := b.s3ManagerDownloader()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, "there was a problem downloading from the bucket")
 	}
-	downloader := s3manager.NewDownloader(sess)
 
 	u, err := url.Parse(bucketURL)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "the provided bucket location is not a valid URL: %s", bucketURL)
 	}
 	requestInput := s3.GetObjectInput{
 		Bucket: aws.String(u.Host),
-		Key: aws.String(u.Path),
+		Key:    aws.String(u.Path),
 	}
 
 	buf := aws.NewWriteAtBuffer([]byte{})
