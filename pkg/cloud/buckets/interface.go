@@ -3,6 +3,7 @@ package buckets
 import "bufio"
 
 // Provider represents a bucket provider
+//go:generate pegomock generate github.com/jenkins-x/jx/pkg/cloud/buckets Provider -o mocks/buckets_interface.go
 type Provider interface {
 	// CreateNewBucketForCluster creates a new dynamically named bucket
 	CreateNewBucketForCluster(clusterName string, bucketKind string) (string, error)

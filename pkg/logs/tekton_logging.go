@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/jenkins-x/jx/pkg/cloud/factory"
 	"github.com/jenkins-x/jx/pkg/cloud/gke"
+	"github.com/jenkins-x/jx/pkg/cmd/clients"
 	"io"
 	"io/ioutil"
 	"net/url"
@@ -550,7 +551,7 @@ func downloadLogFile(logsURL string, o *opts.CommonOptions) ([]byte, error) {
 }
 
 func performProviderDownload(logsURL string) (*bufio.Scanner, error) {
-	provider, err := factory.NewBucketProviderFromTeamSettingsConfiguration()
+	provider, err := factory.NewBucketProviderFromTeamSettingsConfiguration(clients.NewFactory())
 	if err != nil {
 		return nil, errors.Wrap(err, "There was a problem obtaining a Bucket provider for bucket scheme gs://")
 	}

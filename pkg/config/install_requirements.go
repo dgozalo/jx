@@ -482,7 +482,6 @@ func GetRequirementsConfigFromTeamSettings(settings *v1.TeamSettings) (*Requirem
 		return nil, nil
 	}
 	// TeamSettings does not have a real value for BootRequirements, so this is probably not a boot cluster.
-	log.Logger().Warnf("Requirements11: %+v", settings.BootRequirements)
 	if settings.BootRequirements == "" {
 		return nil, nil
 	}

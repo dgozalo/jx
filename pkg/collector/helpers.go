@@ -3,6 +3,7 @@ package collector
 import (
 	"github.com/jenkins-x/jx/pkg/apis/jenkins.io/v1"
 	"github.com/jenkins-x/jx/pkg/cloud/factory"
+	"github.com/jenkins-x/jx/pkg/cmd/clients"
 	"github.com/jenkins-x/jx/pkg/gits"
 	"github.com/pkg/errors"
 )
@@ -17,7 +18,7 @@ func NewCollector(storageLocation v1.StorageLocation, gitter gits.Gitter) (Colle
 	if gitURL != "" {
 		return NewGitCollector(gitter, gitURL, storageLocation.GetGitBranch())
 	}
-	bucketProvider, err := factory.NewBucketProviderFromTeamSettingsConfigurationOrDefault(storageLocation)
+	bucketProvider, err := factory.NewBucketProviderFromTeamSettingsConfigurationOrDefault(clients.NewFactory(), storageLocation)
 	if err != nil {
 		return nil, errors.Wrap(err, "there was a problem obtaining the bucket provider from cluster configuratio")
 	}

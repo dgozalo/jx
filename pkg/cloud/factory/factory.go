@@ -14,8 +14,6 @@ import (
 	"github.com/pkg/errors"
 )
 
-//TODO: Testable
-
 // NewBucketProvider creates a new bucket provider for a given Kubernetes provider
 func NewBucketProvider(requirements *config.RequirementsConfig) buckets.Provider {
 	switch requirements.Cluster.Provider {
@@ -33,8 +31,7 @@ func NewBucketProvider(requirements *config.RequirementsConfig) buckets.Provider
 }
 
 // NewBucketProviderFromTeamSettingsConfiguration returns a bucket provider based on the jx-requirements file embedded in TeamSettings
-func NewBucketProviderFromTeamSettingsConfiguration() (buckets.Provider, error) {
-	factory := clients.NewFactory()
+func NewBucketProviderFromTeamSettingsConfiguration(factory clients.Factory) (buckets.Provider, error) {
 	jxClient, ns, err := factory.CreateJXClient()
 	if err != nil {
 		return nil, err
@@ -52,8 +49,8 @@ func NewBucketProviderFromTeamSettingsConfiguration() (buckets.Provider, error) 
 
 // NewBucketProviderFromTeamSettingsConfigurationOrDefault returns a bucket provider based on the jx-requirements file embedded in TeamSettings
 // or returns the default LegacyProvider and initializes it
-func NewBucketProviderFromTeamSettingsConfigurationOrDefault(storageLocation v1.StorageLocation) (buckets.Provider, error) {
-	provider, err1 := NewBucketProviderFromTeamSettingsConfiguration()
+func NewBucketProviderFromTeamSettingsConfigurationOrDefault(factory clients.Factory, storageLocation v1.StorageLocation) (buckets.Provider, error) {
+	provider, err1 := NewBucketProviderFromTeamSettingsConfiguration(factory)
 	if err1 != nil {
 		log.Logger().Warn("Could not obtain a valid provider, falling back to DefaultProvider")
 		legacyProvider := buckets.NewLegacyBucketProvider()
