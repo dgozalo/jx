@@ -29,8 +29,8 @@ const (
 	ExposeIngressName            = "fabric8.io/ingress.name"
 	JenkinsXSkipTLSAnnotation    = "jenkins-x.io/skip.tls"
 	ExposeIngressAnnotation      = "fabric8.io/ingress.annotations"
-	CertManagerAnnotation        = "certmanager.k8s.io/issuer"
-	CertManagerClusterAnnotation = "certmanager.k8s.io/cluster-issuer"
+	CertManagerAnnotation        = "cert-manager.io/issuer"
+	CertManagerClusterAnnotation = "cert-manager.io/cluster-issuer"
 	ServiceAppLabel              = "app"
 )
 
