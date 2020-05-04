@@ -19,8 +19,13 @@ const (
 	ClusterRoles Resource = "clusterrole"
 	// CustomResourceDefinitions is the customresourcedefinitions.apiextensions.k8s.io resource
 	CustomResourceDefinitions Resource = "customresourcedefinitions"
+
+	Namespace Resource = "namespace"
+
 	// All is the representation of '*' meaning all resources
 	All Resource = "'*'"
+
+	AllVerbs Verb = "'*'"
 	// Create represents the create verb
 	Create Verb = "create"
 	// Delete represents the delete verb

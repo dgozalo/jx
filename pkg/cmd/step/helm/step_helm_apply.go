@@ -148,9 +148,15 @@ func (o *StepHelmApplyOptions) Run() error {
 		return err
 	}
 
-	err = kube.EnsureNamespaceCreated(kubeClient, ns, nil, nil)
-	if err != nil {
-		return err
+	hasPermissions, errs := kube.CanI(kubeClient, kube.AllVerbs, kube.ClusterName)
+	if len(errs) > 0 {
+		return util.CombineErrors(errs...)
+	}
+	if hasPermissions {
+		err = kube.EnsureNamespaceCreated(kubeClient, ns, nil, nil)
+		if err != nil {
+			return err
+		}
 	}
 
 	_, devNs, err := o.KubeClientAndDevNamespace()
