@@ -180,7 +180,9 @@ func (v *defaultVaultCreator) CreateOrUpdateVault(param VaultCreationParam) erro
 	}
 
 	vaultCRD, err := vault.NewVaultCRD(param.KubeClient, param.VaultName, param.Namespace, images, vaultAuthServiceAccount, param.Namespace, param.SecretsPathPrefix)
-
+	if err != nil {
+		return errors.Wrap(err, "unable to get NewVaultCRDO")
+	}
 	err = v.setCloudProviderSpecificSettings(vaultCRD, param)
 	if err != nil {
 		return errors.Wrap(err, "unable to set cloud provider specific Vault configuration")

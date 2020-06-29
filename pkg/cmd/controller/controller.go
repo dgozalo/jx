@@ -50,6 +50,7 @@ func NewCmdController(commonOpts *opts.CommonOptions) *cobra.Command {
 	cmd.AddCommand(NewCmdControllerRole(commonOpts))
 	cmd.AddCommand(NewCmdControllerTeam(commonOpts))
 	cmd.AddCommand(NewCmdControllerCommitStatus(commonOpts))
+	cmd.AddCommand(NewCmdControllerNamespace(commonOpts))
 	return cmd
 }
 
