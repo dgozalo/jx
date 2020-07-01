@@ -357,6 +357,7 @@ func (v *defaultVaultCreator) vaultAWSConfig(vaultCRD *v1alpha1.Vault, param Vau
 		var kmsID, s3Name, tableName, accessID, secretKey *string
 		if param.Boot {
 			accessID, secretKey, kmsID, s3Name, tableName, err = awsvault.CreateVaultResourcesBoot(awsvault.ResourceCreationOpts{
+				ClusterName:     param.ClusterName,
 				Region:          clusterRegion,
 				Domain:          domain,
 				Username:        username,

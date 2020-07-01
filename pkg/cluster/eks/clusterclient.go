@@ -3,7 +3,7 @@ package eks
 import (
 	"fmt"
 
-	"github.com/jenkins-x/jx/v2/pkg/log"
+	"github.com/aws/aws-sdk-go/service/cloudformation"
 
 	"github.com/pkg/errors"
 
@@ -62,7 +62,7 @@ func (a awsClusterClient) Get(clusterName string) (*cluster.Cluster, error) {
 
 // Delete should delete the given cluster using eksctl and delete any created EBS volumes to avoid extra charges
 func (a awsClusterClient) Delete(cluster *cluster.Cluster) error {
-	log.Logger().Infof("Attempting to delete cluster %s", cluster.Name)
+	/*log.Logger().Infof("Attempting to delete cluster %s", cluster.Name)
 	err := a.EKSCtl().DeleteCluster(cluster)
 	if err != nil {
 		return errors.Wrapf(err, "error deleting cluster %s", cluster.Name)
@@ -71,6 +71,25 @@ func (a awsClusterClient) Delete(cluster *cluster.Cluster) error {
 	err = a.EC2().DeleteVolumesForCluster(cluster)
 	if err != nil {
 		return errors.Wrapf(err, "error deleting EC2 Volume for cluster %s", cluster.Name)
+	}
+	*/
+	stacks, err := a.CloudFormation().ListStacks(func(stack *cloudformation.Stack) bool {
+		for _, tag := range stack.Tags {
+			if *tag.Key == "jenkins-x.io/cluster-name" && *tag.Value == cluster.Name {
+				return true
+			}
+		}
+		return false
+	})
+	if err != nil {
+		return errors.Wrapf(err, "there was a problem cleaning up the CloudFormation stacks for cluster %s", cluster.Name)
+	}
+
+	for _, stack := range stacks {
+		err = a.CloudFormation().DeleteStack(stack.StackName)
+		if err != nil {
+			return errors.Wrapf(err, "there was a problem deleting the stack %s", stack.StackName)
+		}
 	}
 
 	return nil

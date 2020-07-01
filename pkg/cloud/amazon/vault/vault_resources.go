@@ -43,6 +43,7 @@ func WaitConfigFunc(waiter *request.Waiter) {
 
 // ResourceCreationOpts The input parameters to create a vault by default on aws
 type ResourceCreationOpts struct {
+	ClusterName     string
 	Region          string
 	Domain          string
 	Username        string
@@ -122,7 +123,7 @@ func CreateVaultResources(vaultParams ResourceCreationOpts) (*string, *string, *
 	// Create dynamic stack name
 	stackName := stackNamePrefix + suffixString
 
-	err = runCloudFormationTemplate(&yamlProcessed, &stackName, nil)
+	err = runCloudFormationTemplate(&yamlProcessed, &stackName, nil, vaultParams)
 	if err != nil {
 		return nil, nil, nil, nil, nil, errors.Wrap(err, "there was a problem running the Vault CloudFormation stack")
 	}
@@ -178,7 +179,7 @@ func CreateVaultResourcesBoot(vaultParams ResourceCreationOpts) (*string, *strin
 			ParameterKey:   aws.String(s3BucketNameParamName),
 			ParameterValue: aws.String(vaultParams.BucketName),
 		},
-	})
+	}, vaultParams)
 	if err != nil {
 		return nil, nil, nil, nil, nil, errors.Wrapf(err, "executing the Vault CloudFormation ")
 	}
@@ -450,7 +451,8 @@ func createIamUserPolicy(username string, depends []string) resources.AWSIAMPoli
 	return policyDocument
 }
 
-func runCloudFormationTemplate(templateBody *string, stackName *string, parameters []*cloudformation.Parameter) error {
+func runCloudFormationTemplate(templateBody *string, stackName *string, parameters []*cloudformation.Parameter,
+	vaultParams ResourceCreationOpts) error {
 
 	sess := session.Must(session.NewSessionWithOptions(session.Options{
 		SharedConfigState: session.SharedConfigEnable,
@@ -468,6 +470,16 @@ func runCloudFormationTemplate(templateBody *string, stackName *string, paramete
 			aws.String("CAPABILITY_NAMED_IAM"),
 		},
 		Parameters: parameters,
+		Tags: []*cloudformation.Tag{
+			{
+				Key:   aws.String("CreatedBy"),
+				Value: aws.String("Jenkins-x"),
+			},
+			{
+				Key:   aws.String("jenkins-x.io/cluster-name"),
+				Value: aws.String(vaultParams.ClusterName),
+			},
+		},
 	}
 	createOutput, err := svc.CreateStack(input)
 	if err != nil {

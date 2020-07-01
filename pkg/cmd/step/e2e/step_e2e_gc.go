@@ -103,12 +103,16 @@ func (o *StepE2EGCOptions) eksGarbageCollection() error {
 		return errors.Wrap(err, "there was a problem obtaining every eksClient in the current account")
 	}
 
+	eksClient.Delete(&cluster.Cluster{
+		Name: "testcluster123",
+	})
+
 	for _, eksCluster := range eksClusters {
 		if eksCluster.Status == "ACTIVE" {
 			if !o.ShouldDeleteMarkedEKSCluster(eksCluster) {
 				if !o.ShouldDeleteOlderThanDurationEKS(eksCluster) {
 					if o.ShouldDeleteDueToNewerRunEKS(eksCluster, eksClusters) {
-						err = o.deleteEksCluster(eksCluster, eksClient)
+						//err = o.deleteEksCluster(eksCluster, eksClient)
 					}
 				} else {
 					err = o.deleteEksCluster(eksCluster, eksClient)

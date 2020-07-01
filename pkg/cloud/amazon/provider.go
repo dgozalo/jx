@@ -2,6 +2,7 @@ package amazon
 
 import (
 	"github.com/jenkins-x/jx/v2/pkg/cloud/amazon/awscli"
+	"github.com/jenkins-x/jx/v2/pkg/cloud/amazon/cloudformation"
 	"github.com/jenkins-x/jx/v2/pkg/cloud/amazon/ec2"
 	"github.com/jenkins-x/jx/v2/pkg/cloud/amazon/eks"
 	"github.com/jenkins-x/jx/v2/pkg/cloud/amazon/eksctl"
@@ -13,6 +14,7 @@ import (
 type Provider interface {
 	EKS() eks.EKSer
 	EC2() ec2.EC2er
+	CloudFormation() cloudformation.CloudFormationer
 	EKSCtl() eksctl.EKSCtl
 	AWSCli() awscli.AWS
 }
@@ -28,6 +30,7 @@ type providerServices struct {
 	eks    eks.EKSer
 	ec2    ec2.EC2er
 	eksctl eksctl.EKSCtl
+	cf     cloudformation.CloudFormationer
 }
 
 // EKS returns an initialized instance of eks.EKSer
@@ -48,6 +51,10 @@ func (p providerServices) EKSCtl() eksctl.EKSCtl {
 // AWSCli returns an abstraction of the AWS CLI
 func (p providerServices) AWSCli() awscli.AWS {
 	return p.cli
+}
+
+func (p providerServices) CloudFormation() cloudformation.CloudFormationer {
+	return p.cf
 }
 
 // NewProvider returns a Provider implementation configured with a session and implementations for AWS services
@@ -72,6 +79,12 @@ func NewProvider(region string, profile string) (*clusterProvider, error) {
 	services.eks = eksOptions
 
 	services.eksctl = eksctl.NewEksctlClient()
+
+	cfOptions, err := cloudformation.NewCloudFormationAPIHandler(session)
+	if err != nil {
+		return nil, errors.Wrap(err, "error initializing the CloudFormation API")
+	}
+	services.cf = cfOptions
 
 	services.cli = awscli.NewAWSCli()
 

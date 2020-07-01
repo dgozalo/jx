@@ -96,10 +96,16 @@ func createPoliciesStack(requirements *config.RequirementsConfig, kubeProvidersD
 	_, err = cfn.CreateStack(&cloudformation.CreateStackInput{
 		Capabilities: []*string{aws.String("CAPABILITY_NAMED_IAM")},
 		StackName:    describeInput.StackName,
-		Tags: []*cloudformation.Tag{{
-			Key:   aws.String("CreatedBy"),
-			Value: aws.String("Jenkins-x"),
-		}},
+		Tags: []*cloudformation.Tag{
+			{
+				Key:   aws.String("CreatedBy"),
+				Value: aws.String("Jenkins-x"),
+			},
+			{
+				Key:   aws.String("jenkins-x.io/cluster-name"),
+				Value: aws.String(requirements.Cluster.ClusterName),
+			},
+		},
 		Parameters: []*cloudformation.Parameter{
 			{
 				ParameterKey:   aws.String("PoliciesSuffixParameter"),
